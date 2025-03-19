@@ -257,9 +257,9 @@ class ExtendedKalmanFilter(Estimator):
         self.canvas_title = 'Extended Kalman Filter'
         # TODO: Your implementation goes here!
         # You may define the Q, R, and P matrices below.
-        self.A = None
+        self.A = np.array([])
         self.B = None
-        self.C = None
+        self.C = np.array([])
         self.Q = None
         self.R = None
         self.P = None
@@ -269,16 +269,67 @@ class ExtendedKalmanFilter(Estimator):
         if len(self.x_hat) > 0: #and self.x_hat[-1][0] < self.x[-1][0]:
             # TODO: Your implementation goes here!
             # You may use self.u, self.y, and self.x[0] for estimation
+            
+            t = len(self.x_hat)
+            x_state = self.g(self.x_hat[t-1], self.u[t])
+            self.A.append(self.approx_A(self.x_hat[t-1], self.u[t]))
+            p_state = self.A[t] @ self.P[t-1] @ self.A.T[t]
+            self.C.append(self.approx_C(x_state))
+            k_state = p_state @ self.C[t].T @ np.linalg.inv(self.C[t]@p_state@self.C[t].T + self.R)
+            
+            # not sure about what h function takes
+            self.x_hat.append(x_state + k_state@(self.y[t] - self.h(x_state, self.y[t]))) 
+            
+            # check size of identity matrix
+            self.P.append(np.Identity(4) - k_state @ self.C[t] @ p_state)
+
             raise NotImplementedError
 
     def g(self, x, u):
-        raise NotImplementedError
+        phi = x[2]
+        x_dot = x[3]
+        z_dot = x[4]
+        phi_dot = x[5]
+        A = np.array([[0, 0],
+                            [0, 0],
+                            [0, 0],
+                            [-np.sin(phi) / self.m, 0],
+                            [np.cos(phi) / self.m, 1],
+                            [0, 1 / self.J]])
+        b = np.array([x_dot, z_dot, phi_dot, 0, - self.gr, 0])
+        g = x + (b + A @ u) * self.dt
+        return g
 
     def h(self, x, y_obs):
-        raise NotImplementedError
+        y = np.array([np.sqrt(),x[5]])
+
+        return y
 
     def approx_A(self, x, u):
-        raise NotImplementedError
+        eps=1e-6
+        g = self.g(x, u)
+        n = len(x)
+        p = len(g)
+        J = np.zeros((p, n))
+
+        for i in range(n):
+            x_perturb = np.array(x, dtype=float)
+            x_perturb[i] += eps
+            J[:, i] = (self.g(x_perturb, u) - self.g(x, u)) / eps
+
+        return J
+        
     
     def approx_C(self, x):
-        raise NotImplementedError
+        eps=1e-6
+        g = self.g(x, u)
+        n = len(x)
+        p = len(g)
+        C = np.zeros((p, n))
+
+        for i in range(n):
+            x_perturb = np.array(x, dtype=float)
+            x_perturb[i] += eps
+            J[:, i] = (self.g(x_perturb, u) - self.g(x, u)) / eps
+
+        return J
