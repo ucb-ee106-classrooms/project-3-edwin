@@ -248,9 +248,19 @@ class DeadReckoning(Estimator):
 
     def update(self, _):
         if len(self.x_hat) > 0 and self.x_hat[-1][0] < self.x[-1][0]:
+            print("x_hat: ", self.x_hat)
             # TODO: Your implementation goes here!
             # You may ONLY use self.u and self.x[0] for estimation
-            raise NotImplementedError
+            t = len(self.x_hat)
+            x_dot = np.array([[(-self.r/(2*self.d)), (self.r/(2*self.d))],
+                             [((self.r * np.cos(self.x_hat[t-1][1] ))/ 2), ((self.r * np.cos(self.x_hat[t-1][1] ))/ 2)],
+                             [((self.r * np.sin(self.x_hat[t-1][1] ))/ 2), ((self.r * np.sin(self.x_hat[t-1][1] ))/ 2)],
+                             [1, 0],
+                             [0, 1]]) 
+            new = self.x_hat[t-1][1:] + (x_dot @ self.u[t][1:]) * self.dt
+
+            self.x_hat.append(np.insert(new, 0, self.u[t][0]))
+            # raise NotImplementedError
 
 
 class KalmanFilter(Estimator):
@@ -281,6 +291,17 @@ class KalmanFilter(Estimator):
         self.phid = np.pi / 4
         # TODO: Your implementation goes here!
         # You may define the A, C, Q, R, and P matrices below.
+        self.A = np.identity(4)
+        self.B = np.array([
+                [((self.r * np.cos(np.pi / 4)) / 2), ((self.r * np.cos(np.pi / 4))/ 2)],
+                [((self.r * np.sin(np.pi / 4)) / 2), ((self.r * np.sin(np.pi / 4))/ 2)],
+                [1, 0],
+                [0, 1]]) * self.dt
+        self.C = np.array([[1,0,0,0],
+                      [0,1,0,0]])
+        self.Q = np.identity(4)
+        self.R = np.identity(2)
+        self.P = np.array([np.identity(4)])
 
     # noinspection DuplicatedCode
     # noinspection PyPep8Naming
@@ -288,7 +309,22 @@ class KalmanFilter(Estimator):
         if len(self.x_hat) > 0 and self.x_hat[-1][0] < self.x[-1][0]:
             # TODO: Your implementation goes here!
             # You may use self.u, self.y, and self.x[0] for estimation
-            raise NotImplementedError
+            A = self.A
+            print(len(self.x_hat), len(self.x_hat[0]), self.x_hat)
+            B = self.B
+            C = self.C
+            P = self.P
+            Q = self.Q
+            R = self.R
+            t = len(self.x_hat)
+            x_prediction = A @ self.x_hat[t-1][2:] + B @ self.u[t][1:]
+            P = A @ P @ A.T + Q
+            K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
+            innovation = self.y[t-1][1:] - C @ x_prediction
+            new = x_prediction + K @ innovation
+            P = (np.identity(4) - K @ C) @ P
+            new = np.insert(new, 0, np.pi / 4)
+            self.x_hat.append(np.insert(new, 0, self.u[t][0]))
 
 
 # noinspection PyPep8Naming
