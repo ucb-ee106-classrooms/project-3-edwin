@@ -266,13 +266,13 @@ class ExtendedKalmanFilter(Estimator):
         self.C = np.array([[1,0,0,0],
                       [0,1,0,0]])
         # Process noise - increased for z
-        self.Q = np.diag([0.05, 0.05, 0.01, 0.05, 0.05, 0.01])
+        self.Q = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
         
         # Measurement noise - adjusted to trust distance more
-        self.R = np.diag([0.5, 0.1])
+        self.R = np.diag([1000, 2])
         
         # Initial state covariance
-        self.P = np.diag([0.05, 0.05, 0.01, 0.05, 0.05, 0.01])
+        self.P = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
 
     # noinspection DuplicatedCode
     def update(self, i):
@@ -298,11 +298,11 @@ class ExtendedKalmanFilter(Estimator):
             C = self.approx_C(x_prediction)
             K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
             new = x_prediction + K @ (self.y[t] - self.h(x_prediction))
-            if new[1] < 0:
-                new[1] = 0.1  # Small positive value
-                # If z is being forced to a minimum, also adjust z velocity
-                if new[4] < 0:
-                    new[4] = 0
+            # if new[1] < 0:
+            #     new[1] = 0.1  # Small positive value
+            #     # If z is being forced to a minimum, also adjust z velocity
+            #     if new[4] < 0:
+            #         new[4] = 0
             self.P = (np.identity(6) - (K @ C)) @ P
             self.x_hat.append(new)
 
