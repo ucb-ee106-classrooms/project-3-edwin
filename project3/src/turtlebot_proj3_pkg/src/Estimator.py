@@ -2,6 +2,7 @@ import rospy
 from std_msgs.msg import Float32MultiArray
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 plt.rcParams['font.family'] = ['FreeSans', 'Helvetica', 'Arial']
 plt.rcParams['font.size'] = 14
 
@@ -71,6 +72,7 @@ class Estimator:
     """
     # noinspection PyTypeChecker
     def __init__(self):
+        self.times = []
         self.d = 0.08
         self.r = 0.033
         self.u = []
@@ -198,6 +200,72 @@ class Estimator:
         ylim = ax.get_ylim()
         ax.set_ylim([min(min(y) * 1.05, ylim[0]), max(max(y) * 1.05, ylim[1])])
 
+    def calcError(self):
+
+        absErrorX = 0
+        absErrorY = 0
+        absErrorPhi = 0
+        absErrorDist = 0
+        relErrorX = 0
+        relErrorY = 0
+        relErrorPhi = 0
+        relErrorDist = 0
+        # self.x_hat.pop(0)
+        for i in range(len(self.x)):
+            # Calculate absolute errors
+            # print(self.x[i][2], self.x_hat[i][2])
+            absX = abs(self.x[i][2] - self.x_hat[i][2])
+            absY = abs(self.x[i][3] - self.x_hat[i][3])
+            absPhi = abs(self.x[i][1] - self.x_hat[i][1])
+            
+            # Calculate distances to landmark for true and estimated state
+            true_dist = np.sqrt((self.x[i][2])**2 + (self.x[i][3])**2)
+            
+            est_dist = np.sqrt((self.x_hat[i][2])**2 + (self.x_hat[i][3])**2)
+            
+            absDist = abs(true_dist - est_dist)
+            
+            # Sum up absolute errors
+            absErrorX += absX
+            absErrorY += absY
+            absErrorPhi += absPhi
+            absErrorDist += absDist
+            
+            # Calculate relative errors
+            if abs(self.x[i][2]) > 1e-10:
+                relErrorX += absX / abs(self.x[i][2])
+            if abs(self.x[i][3]) > 1e-10:
+                relErrorY += absY / abs(self.x[i][3])
+            if abs(self.x[i][1]) > 1e-10:
+                relErrorPhi += absPhi / abs(self.x[i][1])
+            if true_dist > 1e-10:
+                relErrorDist += absDist / true_dist
+        
+        # Calculate average errors
+        n = len(self.x)
+        if n > 0:
+            absErrorX /= n
+            absErrorY /= n
+            absErrorPhi /= n
+            absErrorDist /= n
+            relErrorX /= n
+            relErrorY /= n
+            relErrorPhi /= n
+            relErrorDist /= n
+        
+        print("Absolute Errors:")
+        print(f"X Position: {absErrorX:.6f} m")
+        print(f"Y Position: {absErrorY:.6f} m")
+        print(f"Phi Angle: {absErrorPhi:.6f} rad")
+        print(f"Distance to Landmark: {absErrorDist:.6f} m")
+        print("\nRelative Errors:")
+        print(f"X Position: {relErrorX:.6f} (ratio)")
+        print(f"Y Position: {relErrorY:.6f} (ratio)")
+        print(f"Phi Angle: {relErrorPhi:.6f} (ratio)")
+        print(f"Distance to Landmark: {relErrorDist:.6f} (ratio)")
+
+        print("Average time is: ", np.mean(self.times))
+
 
 class OracleObserver(Estimator):
     """Oracle observer which has access to the true state.
@@ -218,7 +286,10 @@ class OracleObserver(Estimator):
         self.canvas_title = 'Oracle Observer'
 
     def update(self, _):
+        start_time = time.time()
         self.x_hat.append(self.x[-1])
+        end_time = time.time()
+        self.times.append(end_time - start_time)
 
 
 class DeadReckoning(Estimator):
@@ -247,8 +318,10 @@ class DeadReckoning(Estimator):
         self.canvas_title = 'Dead Reckoning'
 
     def update(self, _):
+        # get time here
+        start_time = time.time()
         if len(self.x_hat) > 0 and self.x_hat[-1][0] < self.x[-1][0]:
-            print("x_hat: ", self.x_hat)
+            # print("x_hat: ", self.x_hat)
             # TODO: Your implementation goes here!
             # You may ONLY use self.u and self.x[0] for estimation
             t = len(self.x_hat)
@@ -260,6 +333,9 @@ class DeadReckoning(Estimator):
             new = self.x_hat[t-1][1:] + (x_dot @ self.u[t][1:]) * self.dt
 
             self.x_hat.append(np.insert(new, 0, self.u[t][0]))
+        # get time here
+        end_time = time.time()
+        self.times.append(end_time - start_time)
             # raise NotImplementedError
 
 
@@ -306,6 +382,7 @@ class KalmanFilter(Estimator):
     # noinspection DuplicatedCode
     # noinspection PyPep8Naming
     def update(self, _):
+        start_time = time.time()
         if len(self.x_hat) > 0 and self.x_hat[-1][0] < self.x[-1][0]:
             # TODO: Your implementation goes here!
             # You may use self.u, self.y, and self.x[0] for estimation
@@ -325,6 +402,8 @@ class KalmanFilter(Estimator):
             self.P = (np.identity(4) - K @ C) @ P
             new = np.insert(new, 0, np.pi / 4)
             self.x_hat.append(np.insert(new, 0, self.u[t][0]))
+        end_time = time.time()
+        self.times.append(end_time - start_time)
 
 
 # noinspection PyPep8Naming

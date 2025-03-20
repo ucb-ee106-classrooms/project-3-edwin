@@ -29,6 +29,7 @@ def spin(estimator):
         init_func=estimator.plot_init,
         cache_frame_data=False)
     plt.show(block=True)  # This functions the same as rospy.spin()
+    estimator.calcError()
 
 
 def main():

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 plt.rcParams['font.family'] = ['Arial']
 plt.rcParams['font.size'] = 14
 
@@ -91,6 +92,8 @@ class Estimator:
 
 
     def run(self):
+        avg_time = 0
+        n = 0
         for i, data in enumerate(self.data):
             self.t.append(np.array(data[0]))
             self.x.append(np.array(data[1:7]))
@@ -99,8 +102,84 @@ class Estimator:
             if i == 0:
                 self.x_hat.append(self.x[-1])
             else:
+                start_time = time.time()                
                 self.update(i)
+                end_time = time.time()
+                avg_time += end_time - start_time
+                n += 1
+
+        print("Average time is: ", avg_time/n)
+        self.calcError()
         return self.x_hat
+    
+    def calcError(self):
+
+        absErrorX = 0
+        absErrorZ = 0
+        absErrorPhi = 0
+        absErrorDist = 0
+        relErrorX = 0
+        relErrorZ = 0
+        relErrorPhi = 0
+        relErrorDist = 0
+        
+        for i in range(len(self.x)):
+            # Calculate absolute errors
+            absX = abs(self.x[i][0] - self.x_hat[i][0])
+            absZ = abs(self.x[i][1] - self.x_hat[i][1])
+            absPhi = abs(self.x[i][2] - self.x_hat[i][2])
+            
+            # Calculate distances to landmark for true and estimated state
+            true_dist = np.sqrt((self.landmark[0] - self.x[i][0])**2 + 
+                            self.landmark[1]**2 + 
+                            (self.landmark[2] - self.x[i][1])**2)
+            
+            est_dist = np.sqrt((self.landmark[0] - self.x_hat[i][0])**2 + 
+                            self.landmark[1]**2 + 
+                            (self.landmark[2] - self.x_hat[i][1])**2)
+            
+            absDist = abs(true_dist - est_dist)
+            
+            # Sum up absolute errors
+            absErrorX += absX
+            absErrorZ += absZ
+            absErrorPhi += absPhi
+            absErrorDist += absDist
+            
+            # Calculate relative errors
+            if abs(self.x[i][0]) > 1e-10:
+                relErrorX += absX / abs(self.x[i][0])
+            if abs(self.x[i][1]) > 1e-10:
+                relErrorZ += absZ / abs(self.x[i][1])
+            if abs(self.x[i][2]) > 1e-10:
+                relErrorPhi += absPhi / abs(self.x[i][2])
+            if true_dist > 1e-10:
+                relErrorDist += absDist / true_dist
+        
+        # Calculate average errors
+        n = len(self.x)
+        if n > 0:
+            absErrorX /= n
+            absErrorZ /= n
+            absErrorPhi /= n
+            absErrorDist /= n
+            relErrorX /= n
+            relErrorZ /= n
+            relErrorPhi /= n
+            relErrorDist /= n
+        
+        print("Absolute Errors:")
+        print(f"X Position: {absErrorX:.6f} m")
+        print(f"Z Position: {absErrorZ:.6f} m")
+        print(f"Phi Angle: {absErrorPhi:.6f} rad")
+        print(f"Distance to Landmark: {absErrorDist:.6f} m")
+        print("\nRelative Errors:")
+        print(f"X Position: {relErrorX:.6f} (ratio)")
+        print(f"Z Position: {relErrorZ:.6f} (ratio)")
+        print(f"Phi Angle: {relErrorPhi:.6f} (ratio)")
+        print(f"Distance to Landmark: {relErrorDist:.6f} (ratio)")
+
+
 
     def update(self, _):
         raise NotImplementedError
@@ -207,7 +286,9 @@ class DeadReckoning(Estimator):
         self.canvas_title = 'Dead Reckoning'
 
     def update(self, _):
+        
         if len(self.x_hat) > 0:
+            
             # TODO: Your implementation goes here!
             # You may ONLY use self.u and self.x[0] for estimation
             t = len(self.x_hat)
@@ -265,11 +346,11 @@ class ExtendedKalmanFilter(Estimator):
         #         [0, 1]]) * self.dt
         self.C = np.array([[1,0,0,0],
                       [0,1,0,0]])
-        self.Q = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
+        self.Q = np.diag([0.05, 0.1, 1000, 0.05, 0.05, 0.5])
         
         self.R = np.diag([1000, 2])
         
-        self.P = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
+        self.P = np.diag([0.05, 0.1, 1000, 0.05, 0.05, 0.5])
 
     # noinspection DuplicatedCode
     def update(self, i):
