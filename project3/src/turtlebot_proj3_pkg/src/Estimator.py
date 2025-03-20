@@ -322,7 +322,7 @@ class KalmanFilter(Estimator):
             K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
             innovation = self.y[t-1][1:] - C @ x_prediction
             new = x_prediction + K @ innovation
-            P = (np.identity(4) - K @ C) @ P
+            self.P = (np.identity(4) - K @ C) @ P
             new = np.insert(new, 0, np.pi / 4)
             self.x_hat.append(np.insert(new, 0, self.u[t][0]))
 
