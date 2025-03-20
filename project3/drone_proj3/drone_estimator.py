@@ -257,33 +257,58 @@ class ExtendedKalmanFilter(Estimator):
         self.canvas_title = 'Extended Kalman Filter'
         # TODO: Your implementation goes here!
         # You may define the Q, R, and P matrices below.
-        self.A = np.array([])
-        self.B = None
-        self.C = np.array([])
-        self.Q = None
-        self.R = None
-        self.P = None
+        # self.A = np.array([])
+        # self.B = None
+        # self.C = np.array([])
+        # self.Q = None
+        # self.R = None
+        # self.P = None
+        self.A = np.identity(4)
+        self.B = np.array([
+                [((self.r * np.cos(np.pi / 4)) / 2), ((self.r * np.cos(np.pi / 4))/ 2)],
+                [((self.r * np.sin(np.pi / 4)) / 2), ((self.r * np.sin(np.pi / 4))/ 2)],
+                [1, 0],
+                [0, 1]]) * self.dt
+        self.C = np.array([[1,0,0,0],
+                      [0,1,0,0]])
+        self.Q = np.identity(4)
+        self.R = np.identity(2)
+        self.P = np.array([np.identity(4)])
+        
 
     # noinspection DuplicatedCode
     def update(self, i):
         if len(self.x_hat) > 0: #and self.x_hat[-1][0] < self.x[-1][0]:
             # TODO: Your implementation goes here!
             # You may use self.u, self.y, and self.x[0] for estimation
-            
+            A = self.A
+            print(len(self.x_hat), len(self.x_hat[0]), self.x_hat)
+            B = self.B
+            C = self.C
+            P = self.P
+            Q = self.Q
+            R = self.R
             t = len(self.x_hat)
-            x_state = self.g(self.x_hat[t-1], self.u[t])
-            self.A.append(self.approx_A(self.x_hat[t-1], self.u[t]))
-            p_state = self.A[t] @ self.P[t-1] @ self.A.T[t]
-            self.C.append(self.approx_C(x_state))
-            k_state = p_state @ self.C[t].T @ np.linalg.inv(self.C[t]@p_state@self.C[t].T + self.R)
-            
-            # not sure about what h function takes
-            self.x_hat.append(x_state + k_state@(self.y[t] - self.h(x_state, self.y[t]))) 
-            
-            # check size of identity matrix
-            self.P.append(np.Identity(4) - k_state @ self.C[t] @ p_state)
 
-            raise NotImplementedError
+            # x_prediction = A @ self.x_hat[t-1][2:] + B @ self.u[t][1:]
+            # P = A @ P @ A.T + Q
+            # K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
+            # innovation = self.y[t-1][1:] - C @ x_prediction
+            # new = x_prediction + K @ innovation
+            # P = (np.identity(4) - K @ C) @ P
+            # new = np.insert(new, 0, np.pi / 4)
+            # self.x_hat.append(np.insert(new, 0, self.u[t][0]))
+
+            # t = len(self.x_hat)
+            x_prediction = self.g(self.x_hat[t-1], self.u[t-1])
+            A = self.approx_A(self.x_hat[t-1], self.u[t-1])
+            P = A @ P @ A.T + Q
+            C = self.approx_C(x_prediction)
+            K = P @ C.T @ np.linalg.inv(C @ P @ C.T + self.R)
+            
+            new = x_prediction + x_prediction@(self.y[t] - self.h(x_prediction, self.y[t]))
+            self.P = (np.Identity(4) - K @ C) @ P
+            self.x_hat.append(new)
 
     def g(self, x, u):
         phi = x[2]
