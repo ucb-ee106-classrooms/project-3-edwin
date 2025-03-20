@@ -265,13 +265,10 @@ class ExtendedKalmanFilter(Estimator):
         #         [0, 1]]) * self.dt
         self.C = np.array([[1,0,0,0],
                       [0,1,0,0]])
-        # Process noise - increased for z
         self.Q = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
         
-        # Measurement noise - adjusted to trust distance more
         self.R = np.diag([1000, 2])
         
-        # Initial state covariance
         self.P = np.diag([0.05, 0.1, 0.01, 0.05, 0.05, 0.01])
 
     # noinspection DuplicatedCode
@@ -298,11 +295,7 @@ class ExtendedKalmanFilter(Estimator):
             C = self.approx_C(x_prediction)
             K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
             new = x_prediction + K @ (self.y[t] - self.h(x_prediction))
-            # if new[1] < 0:
-            #     new[1] = 0.1  # Small positive value
-            #     # If z is being forced to a minimum, also adjust z velocity
-            #     if new[4] < 0:
-            #         new[4] = 0
+
             self.P = (np.identity(6) - (K @ C)) @ P
             self.x_hat.append(new)
 
@@ -329,14 +322,6 @@ class ExtendedKalmanFilter(Estimator):
 
         d = np.sqrt((l_x - x[0]) ** 2 + l_y**2 + (l_z - x[1])**2)
 
-
-        # # Calculate relative bearing to landmark
-        # rel_bearing = np.arctan2(l_z - x[1], l_x - x[0]) - x[2]
-        
-        # # Normalize angle to [-π, π]
-        # rel_bearing = (rel_bearing + np.pi) % (2*np.pi) - np.pi
-        
-        # phi = rel_bearing
 
         phi = x[2]
 
@@ -365,23 +350,6 @@ class ExtendedKalmanFilter(Estimator):
         jac[0, 0] = (x[0] - l_x) / d
         jac[0, 1] = (x[1] - l_z) / d
         jac[1, 2] = 1
-
-        # l_x, l_y, l_z = 0, 5, 5
-        # d = np.sqrt((l_x - x[0])**2 + l_y**2 + (l_z - x[1])**2)
-        
-        # dx = l_x - x[0]
-        # dz = l_z - x[1]
-        # denominator = dx**2 + dz**2
-        
-        # jac = np.zeros((2, 6))
-        # # Distance derivatives
-        # jac[0, 0] = (x[0] - l_x) / d
-        # jac[0, 1] = (x[1] - l_z) / d
-        
-        # # Bearing derivatives
-        # jac[1, 0] = dz / denominator
-        # jac[1, 1] = -dx / denominator
-        # jac[1, 2] = -1
 
         return jac
 
