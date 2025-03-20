@@ -257,28 +257,120 @@ class ExtendedKalmanFilter(Estimator):
         self.canvas_title = 'Extended Kalman Filter'
         # TODO: Your implementation goes here!
         # You may define the Q, R, and P matrices below.
-        self.A = None
-        self.B = None
-        self.C = None
-        self.Q = None
-        self.R = None
-        self.P = None
+        self.A = np.identity(4)
+        # self.B = np.array([
+        #         [((self.r * np.cos(np.pi / 4)) / 2), ((self.r * np.cos(np.pi / 4))/ 2)],
+        #         [((self.r * np.sin(np.pi / 4)) / 2), ((self.r * np.sin(np.pi / 4))/ 2)],
+        #         [1, 0],
+        #         [0, 1]]) * self.dt
+        self.C = np.array([[1,0,0,0],
+                      [0,1,0,0]])
+        self.Q = np.identity(6)
+        self.R = np.identity(2)
+        self.P = np.identity(6)
 
     # noinspection DuplicatedCode
     def update(self, i):
         if len(self.x_hat) > 0: #and self.x_hat[-1][0] < self.x[-1][0]:
             # TODO: Your implementation goes here!
             # You may use self.u, self.y, and self.x[0] for estimation
-            raise NotImplementedError
+            A = self.A
+            # print(len(self.x_hat), len(self.x_hat[0]), self.x_hat)
+            # B = self.B
+            C = self.C
+            P = self.P
+            Q = self.Q
+            t = len(self.x_hat)
+
+    
+            # print("x_hat: ", self.x_hat[t-1])
+            # print(self.u[t-1])
+
+            x_prediction = self.g(self.x_hat[t-1], self.u[t-1])
+            A = self.approx_A(self.x_hat[t-1], self.u[t-1])
+            P = A @ P @ A.T + Q
+            C = self.approx_C(x_prediction)
+            K = P @ C.T @ np.linalg.inv((C @ P @ C.T) + self.R)
+            new = x_prediction + K@(self.y[t] - self.h(x_prediction))
+            self.P = (np.identity(6) - (K @ C)) @ P
+            self.x_hat.append(new)
+
 
     def g(self, x, u):
-        raise NotImplementedError
+        phi = x[2]
+        x_dot = x[3]
+        z_dot = x[4]
+        phi_dot = x[5]
+        A = np.array([[0, 0],
+                            [0, 0],
+                            [0, 0],
+                            [-np.sin(phi) / self.m, 0],
+                            [np.cos(phi) / self.m, 0],
+                            [0, 1 / self.J]])
+        b = np.array([x_dot, z_dot, phi_dot, 0, - self.gr, 0])
+        g = x + (b + A @ u) * self.dt
+        return g
 
-    def h(self, x, y_obs):
-        raise NotImplementedError
+    def h(self, x):
+        l_x = 0
+        l_y = 5
+        l_z = 5
+
+        d = np.sqrt((l_x - x[0]) ** 2 + l_y**2 + (l_z - x[1])**2)
+
+
+        # # Calculate relative bearing to landmark
+        # rel_bearing = np.arctan2(l_z - x[1], l_x - x[0]) - x[2]
+        
+        # # Normalize angle to [-π, π]
+        # rel_bearing = (rel_bearing + np.pi) % (2*np.pi) - np.pi
+        
+        # phi = rel_bearing
+
+        phi = x[2]
+
+
+        return np.array([d, phi])
 
     def approx_A(self, x, u):
-        raise NotImplementedError
-    
+        J = np.eye(6)
+        J[0, 3] = self.dt
+        J[1, 4] = self.dt
+        J[2, 5] = self.dt
+        J[3, 2] = -self.dt * np.cos(x[2]) / self.m * u[0]
+        J[4, 2] = -self.dt * np.sin(x[2]) / self.m * u[0]
+
+        return J
+        
+
     def approx_C(self, x):
-        raise NotImplementedError
+        l_x = 0
+        l_y = 5
+        l_z = 5
+
+        d = np.sqrt((l_x - x[0]) ** 2 + l_y**2 + (l_z - x[1])**2)
+
+        jac = np.zeros((2, 6))
+        jac[0, 0] = (x[0] - l_x) / d
+        jac[0, 1] = (x[1] - l_z) / d
+        jac[1, 2] = 1
+
+        # l_x, l_y, l_z = 0, 5, 5
+        # d = np.sqrt((l_x - x[0])**2 + l_y**2 + (l_z - x[1])**2)
+        
+        # dx = l_x - x[0]
+        # dz = l_z - x[1]
+        # denominator = dx**2 + dz**2
+        
+        # jac = np.zeros((2, 6))
+        # # Distance derivatives
+        # jac[0, 0] = (x[0] - l_x) / d
+        # jac[0, 1] = (x[1] - l_z) / d
+        
+        # # Bearing derivatives
+        # jac[1, 0] = dz / denominator
+        # jac[1, 1] = -dx / denominator
+        # jac[1, 2] = -1
+
+        return jac
+
