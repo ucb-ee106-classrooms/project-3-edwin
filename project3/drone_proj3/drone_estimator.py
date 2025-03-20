@@ -280,6 +280,7 @@ class ExtendedKalmanFilter(Estimator):
             C = self.C
             P = self.P
             Q = self.Q
+            R = self.R
             t = len(self.x_hat)
 
     
@@ -290,8 +291,8 @@ class ExtendedKalmanFilter(Estimator):
             A = self.approx_A(self.x_hat[t-1], self.u[t-1])
             P = A @ P @ A.T + Q
             C = self.approx_C(x_prediction)
-            K = P @ C.T @ np.linalg.inv((C @ P @ C.T) + self.R)
-            new = x_prediction + K@(self.y[t] - self.h(x_prediction))
+            K = P @ C.T @ np.linalg.inv(C @ P @ C.T + R)
+            new = x_prediction + K @ (self.y[t] - self.h(x_prediction))
             self.P = (np.identity(6) - (K @ C)) @ P
             self.x_hat.append(new)
 
